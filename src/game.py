@@ -47,12 +47,12 @@ class PoohHomerun(Game):
     STATE_RESULT = 3
     WIDTH        = 600
     HEIGHT       = 450
-    ACTIONS      = np.array([[np.float32(i + 235) / WIDTH * 2 - 1, 0, j, 1 - j] for i in range(0, 150, 3) for j in range(2)], dtype=np.float32)
+    ACTIONS      = np.array([[np.float32(i + 260) / WIDTH * 2 - 1, 0, j, 1 - j] for i in range(0, 100, 3) for j in range(2)], dtype=np.float32)
 
     def __init__(self, x, y):
         super(PoohHomerun, self).__init__(x, y)
         self.state = self.STATE_TITLE
-        self.zero_reward_left = 0
+        self.pausing_play = False
         self.images = {}
         self.width = 600
         self.height = 450
@@ -117,28 +117,35 @@ class PoohHomerun(Game):
         position = self.findImage(screen, self.images['end'], 250, 180, 100, 80)
         if position != None:
             self.mouseup()
-            self.zero_reward_left = 0
+            self.pausing_play = False
             self.state = self.STATE_RESULT
             return 0, True
-        if self.zero_reward_left > 0:
-            self.zero_reward_left -= 1
-            return 0, False
         position = self.findImage(screen, self.images['homerun'], 250, 180, 100, 80)
         if position != None:
-            self.zero_reward_left = 25
+            if self.pausing_play:
+                return None, False
+            self.pausing_play = True
             return 100, True
         position = self.findImage(screen, self.images['hit'], 250, 180, 100, 80)
         if position != None:
-            self.zero_reward_left = 25
-            return 10, True
+            if self.pausing_play:
+                return None, False
+            self.pausing_play = True
+            return -80, True
         position = self.findImage(screen, self.images['foul'], 250, 180, 100, 80)
         if position != None:
-            self.zero_reward_left = 25
-            return 5, True
+            if self.pausing_play:
+                return None, False
+            self.pausing_play = True
+            return -90, True
         position = self.findImage(screen, self.images['strike'], 250, 180, 100, 80)
         if position != None:
-            self.zero_reward_left = 25
+            if self.pausing_play:
+                return None, False
+            self.pausing_play = True
             return -100, True
+        if self.pausing_play:
+            self.pausing_play = False
         return 0, False
 
     def _process_result(self, screen):

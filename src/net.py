@@ -7,27 +7,30 @@ from chainer import cuda, Variable
 
 class Q(chainer.Chain):
     def __init__(self, width=150, height=112, channel=3, action_size=100, latent_size=100):
-        feature_size = (((width / 2 + 1) / 2 + 1) / 2) * (((height / 2 + 1) / 2 + 1) / 2) * 32
+        feature_width = width
+        feature_height = height
+        for i in range(4):
+            feature_width = (feature_width + 1) // 2
+            feature_height = (feature_height + 1) // 2
+        feature_size = feature_width * feature_height * 64
         super(Q, self).__init__(
-            conv1  = L.Convolution2D(channel, 16, 8, stride=2, pad=3, wscale=0.02 * math.sqrt(channel)),
-            norm1  = L.BatchNormalization(16),
-            conv2  = L.Convolution2D(16, 32, 5, pad=2, wscale=0.02 * math.sqrt(16)),
-            norm2  = L.BatchNormalization(32),
-            l1 = L.Linear(feature_size, latent_size, wscale=0.02 * math.sqrt(feature_size)),
-            norml1 = L.BatchNormalization(latent_size),
-            l2 = L.Linear(latent_size, latent_size, wscale=0.02 * math.sqrt(latent_size)),
-            norml2 = L.BatchNormalization(latent_size),
-            q      = L.Linear(latent_size, action_size, wscale=0.02 * math.sqrt(latent_size)),
+            conv1 = L.Convolution2D(channel, 16, 8, stride=4, pad=3),
+            conv2 = L.Convolution2D(16, 32, 5, stride=2, pad=2),
+            conv3 = L.Convolution2D(32, 64, 5, stride=2, pad=2),
+            lstm  = L.LSTM(feature_size, latent_size),
+            q     = L.Linear(latent_size, action_size),
         )
         self.width = width
         self.height = height
         self.latent_size = latent_size
 
-    def __call__(self, (x, prev), train=True):
-        h1 = F.max_pooling_2d(F.relu(self.norm1(self.conv1(x), test=not train)), 2)
-        h2 = F.max_pooling_2d(F.relu(self.norm2(self.conv2(h1), test=not train)), 2)
-        h3 = F.relu(self.norml1(self.l1(h2), test=not train) + prev)
-        current = self.l2(h3)
-        h4 = F.relu(self.norml2(current, test=not train))
+    def __call__(self, x, train=True):
+        h1 = F.relu(self.conv1(x))
+        h2 = F.relu(self.conv2(h1))
+        h3 = F.relu(self.conv3(h2))
+        h4 = self.lstm(h3)
         q = self.q(h4)
-        return (q, current)
+        return q
+
+    def reset_state(self):
+        self.lstm.reset_state()
