@@ -17,7 +17,7 @@ import objgraph
 POOL_SIZE = 10000 * 10
 latent_size = 256
 gamma = 0.98
-batch_size = 32
+batch_size = 64
 ag.PAUSE = 0
 
 parser = argparse.ArgumentParser(description='Deep Q-learning Network for game using mouse')
@@ -83,8 +83,9 @@ terminal_pool = np.zeros((POOL_SIZE,), dtype=np.float32)
 if only_result:
     terminal_pool[-1] = 1
 frame = 0
+average_reward = 0
 
-optimizer = optimizers.AdaDelta(rho=0.95, eps=0.01)
+optimizer = optimizers.AdaDelta(rho=0.95, eps=1e-06)
 optimizer.setup(q)
 optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
 if args.input is not None:
@@ -190,7 +191,9 @@ if __name__ == '__main__':
                 state_pool[index] = cuda.to_cpu(train_image.data)
                 action_pool[index] = actual
                 reward_pool[index - 1] = reward
+                average_reward = average_reward * 0.9999 + reward * 0.0001
                 if terminal:
+                    print "average reward: ", average_reward
                     terminal_pool[index - 1] = 1
                     if only_result:
                         i = index - 2
