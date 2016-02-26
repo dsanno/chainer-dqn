@@ -11,9 +11,6 @@ import chainer
 from chainer import functions as F
 from chainer import cuda, Variable, optimizers, serializers
 
-import gc
-import objgraph
-
 POOL_SIZE = 10000 * 10
 latent_size = 256
 gamma = 0.98
