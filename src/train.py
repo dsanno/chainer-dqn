@@ -24,10 +24,6 @@ parser.add_argument('--left', '-l', required=True, type=int,
                     help='left position of region')
 parser.add_argument('--top', '-t', required=True, type=int,
                     help='top position of region')
-parser.add_argument('--width', default=640, type=int,
-                    help='width of region')
-parser.add_argument('--height', default=480, type=int,
-                    help='height of region')
 parser.add_argument('--input', '-i', default=None, type=str,
                     help='input model file path without extension')
 parser.add_argument('--output', '-o', required=True, type=str,
@@ -53,19 +49,17 @@ args = parser.parse_args()
 interval = args.interval / 1000.0
 left = args.left
 top = args.top
-w = args.width
-h = args.height
 only_result = args.only_result == 1
 game = PoohHomerun(left, top)
 game.load_images('image')
+x, y, w, h = game.region()
 train_width = w / 4
 train_height = h / 4
 random.seed()
 
 gpu_device = None
 xp = np
-actions = game.actions()
-q = Q(width=train_width, height=train_height, latent_size=latent_size, action_size=len(actions))
+q = Q(width=train_width, height=train_height, latent_size=latent_size, action_size=game.action_size())
 if args.gpu >= 0:
     cuda.check_cuda_available()
     gpu_device = args.gpu
@@ -89,14 +83,9 @@ if args.input is not None:
     serializers.load_hdf5('{}.model'.format(args.input), q)
     serializers.load_hdf5('{}.state'.format(args.input), optimizer)
 
-random_probability = args.random / 20
+random_probability = args.random
 random_reduction_rate = 1 - args.random_reduction
-min_random_probability = min(random_probability, args.min_random / 20)
-random_count = 0
-random_min_count = 10
-random_max_count = 30
-random_button = True
-random_position = True
+min_random_probability = min(random_probability, args.min_random)
 
 
 def train():
@@ -141,7 +130,6 @@ if __name__ == '__main__':
         next_clock = time.clock() + interval
         save_iter = 5000
         save_count = 0
-        action_size = len(actions)
         action = None
         action_q = q.copy()
         action_q.reset_state()
@@ -156,41 +144,15 @@ if __name__ == '__main__':
                 score = action_q(train_image, train=False)
 
                 best = int(np.argmax(score.data))
-                if random.random() < random_probability:
-                    random_count += random.randint(random_min_count, random_max_count)
-                    random_type = random.randint(0, 2)
-                    random_button = True
-                    random_position = True
-                    if random_type == 0:
-                        random_button = False
-                    elif random_type == 1:
-                        random_position = False
-                    prev_pos = random.randint(0, action_size // 2 - 1)
-                if random_count > 0:
-                    pos = best // 2
-                    button = best % 2
-                    if random_position:
-                        pos = prev_pos + random.randint(-5, 5)
-                        if pos < 0:
-                            pos = 0
-                        elif pos >= action_size // 2:
-                            pos = action_size // 2 - 1
-                        prev_pos = pos
-                    if random_button:
-                        button = random.randint(0, 1)
-                    actual = pos * 2 + button
-                    random_count -= 1
-                else:
-                    actual = best
-                print float(actions[actual][0]), float(score.data[0][actual]), float(actions[best][0]), int(actions[best][3]), float(score.data[0][best]), reward
-                action = actions[actual]
+                action = game.randomize_action(best, random_probability)
+                print action, float(score.data[0][action]), best, float(score.data[0][best]), reward
                 index = frame % POOL_SIZE
                 state_pool[index] = cuda.to_cpu(train_image.data)
-                action_pool[index] = actual
+                action_pool[index] = action
                 reward_pool[index - 1] = reward
                 average_reward = average_reward * 0.9999 + reward * 0.0001
+                print "average reward: ", average_reward
                 if terminal:
-                    print "average reward: ", average_reward
                     terminal_pool[index - 1] = 1
                     if only_result:
                         i = index - 2
@@ -210,8 +172,6 @@ if __name__ == '__main__':
                     random_probability = min_random_probability
             else:
                 action = None
-                if terminal:
-                    time.sleep(2)
                 if save_iter <= 0:
                     print 'save: ', save_count
                     serializers.save_hdf5('{0}_{1:03d}.model'.format(args.output, save_count), q)

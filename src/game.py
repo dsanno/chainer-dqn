@@ -6,21 +6,31 @@ from PIL import Image
 import pyautogui as ag
 
 class Game(object):
-    def __init__(self, x=0, y=0):
+    def __init__(self, x=0, y=0, width=0, height=0):
         self.x = x
         self.y = y
+        self.width = width
+        self.height = height
+
+    def region(self):
+        return (self.x, self.y, self.width, self.height)
 
     def load_images(self, image_dir):
         raise NotImplementedError
 
-    def process():
+    def process(self, screen):
         raise NotImplementedError
 
-    def actions():
+    def action_size(self):
         raise NotImplementedError
 
-    def play():
+    def play(self, action):
         raise NotImplementedError
+
+    def randomize_action(self, action, random_probability):
+        if random.random() < random_probability:
+            return random.randint(0, self.action_size() - 1)
+        return action
 
     def findImage(self, screen, image, x, y, w, h):
         position = ag.locate(image, screen, region=(x, y, w, h));
@@ -48,14 +58,20 @@ class PoohHomerun(Game):
     WIDTH        = 600
     HEIGHT       = 450
     ACTIONS      = np.array([[np.float32(i + 260) / WIDTH * 2 - 1, 0, j, 1 - j] for i in range(0, 100, 3) for j in range(2)], dtype=np.float32)
+    RANDOM_ACTION_MIN_FRAME = 10
+    RANDOM_ACTION_MAX_FRAME = 30
 
     def __init__(self, x, y):
-        super(PoohHomerun, self).__init__(x, y)
+        super(PoohHomerun, self).__init__(x, y, self.WIDTH, self.HEIGHT)
         self.state = self.STATE_TITLE
         self.pausing_play = False
         self.images = {}
-        self.width = 600
-        self.height = 450
+        self.random = {
+            'count': 0,
+            'button': True,
+            'position': True,
+            'prev_pos': 0,
+        }
 
     def load_images(self, image_dir):
         for name in ['start', 'stage', 'select_title', 'select', 'end', 'homerun', 'hit', 'foul', 'strike']:
@@ -71,33 +87,70 @@ class PoohHomerun(Game):
         else:
             return self._process_play(screen)
 
-    def actions(self):
-        return self.ACTIONS.copy()
+    def action_size(self):
+        return len(self.ACTIONS)
 
     def play(self, action):
-        x, y, up, down = action
-        self.move_to((x + 1) * self.width / 2, 300)
+        x, y, up, down = self.ACTIONS[action]
+        self.move_to((x + 1) * self.WIDTH / 2, 300)
         if up > 0:
             self.mouseup()
         else:
             self.mousedown()
 
+    def randomize_action(self, action, random_probability):
+        random_count = self.random['count']
+        random_button = self.random['button']
+        random_position = self.random['position']
+        prev_pos = self.random['prev_pos']
+        pos_size = self.action_size() // 2
+        if random.random() < random_probability * 2 / (self.RANDOM_ACTION_MIN_FRAME + self.RANDOM_ACTION_MAX_FRAME):
+            random_count += random.randint(self.RANDOM_ACTION_MIN_FRAME, self.RANDOM_ACTION_MAX_FRAME)
+            random_type = random.randint(0, 2)
+            random_button = True
+            random_position = True
+            if random_type == 0:
+                random_button = False
+            elif random_type == 1:
+                random_position = False
+            prev_pos = random.randint(0, pos_size - 1)
+        if random_count <= 0:
+            return action
+        pos = action // 2
+        button = action % 2
+        if random_position:
+            pos = prev_pos + random.randint(-5, 5)
+            if pos < 0:
+                pos = 0
+            elif pos >= pos_size:
+                pos = pos_size - 1
+            prev_pos = pos
+        if random_button:
+            button = random.randint(0, 1)
+        self.random['count'] = random_count - 1
+        self.random['button'] = random_button
+        self.random['position'] = random_position
+        self.random['prev_pos'] = prev_pos
+        return pos * 2 + button
+
     def _process_title(self, screen):
         self.move_to(0, 0)
+        time.sleep(0.1)
         position = self.findImage(screen, self.images['start'], 270, 240, 60, 40)
         if position != None:
             x, y = position
             self.move_to(x, y)
             time.sleep(0.1)
             self.click()
-            time.sleep(0.1)
+            time.sleep(3)
         position = self.findImage(screen, self.images['select_title'], 10, 16, 60, 40)
         if position != None:
             self.state = self.STATE_SELECT
-        return (None, True)
+        return (None, False)
 
     def _process_select(self, screen):
         self.move_to(0, 0)
+        time.sleep(0.1)
         for i in reversed(range(8)):
             position = self.findImage(screen, self.images['stage'], 70 + i % 4 * 130, 180 + i / 4 * 170, 80, 20)
             if position != None and (i == 0 or random.randint(0, 1) == 0):
@@ -105,7 +158,7 @@ class PoohHomerun(Game):
                 self.move_to(x, y + 10)
                 time.sleep(0.1)
                 self.click()
-                time.sleep(0.1)
+                time.sleep(2)
                 break
         position = self.findImage(screen, self.images['select_title'], 10, 16, 60, 40)
         if position == None:
@@ -150,14 +203,15 @@ class PoohHomerun(Game):
 
     def _process_result(self, screen):
         self.move_to(0, 0)
+        time.sleep(0.1)
         position = self.findImage(screen, self.images['select'], 460, 406, 60, 40)
         if position != None:
             x, y = position
             self.move_to(x, y)
             time.sleep(0.1)
             self.click()
-            time.sleep(0.1)
+            time.sleep(3)
         position = self.findImage(screen, self.images['select_title'], 10, 16, 60, 40)
         if position != None:
             self.state = self.STATE_SELECT
-        return (None, True)
+        return (None, False)

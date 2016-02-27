@@ -21,8 +21,6 @@ Options:
 * -g, --gpu: (optional) GPU device index (default: -1).
 * -l, --left: (required) left of the game screen in pixels.
 * -t, --top: (required) top of the game screen in pixels.
-* --width: (optional) width of the game screen in pixels (default: 640).
-* --height: (optional) height of the game screen in pixels (default: 480).
 * -i, --input: (optional) input model file path without extension.
 * -o, --output: (required) output model file path without extension.
 * -r, --random: randomness of playing (default: 0.2).
