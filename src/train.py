@@ -20,10 +20,6 @@ ag.PAUSE = 0
 parser = argparse.ArgumentParser(description='Deep Q-learning Network for game using mouse')
 parser.add_argument('--gpu', '-g', default=-1, type=int,
                     help='GPU ID (negative value indicates CPU)')
-parser.add_argument('--left', '-l', required=True, type=int,
-                    help='left position of region')
-parser.add_argument('--top', '-t', required=True, type=int,
-                    help='top position of region')
 parser.add_argument('--input', '-i', default=None, type=str,
                     help='input model file path without extension')
 parser.add_argument('--output', '-o', required=True, type=str,
@@ -52,6 +48,9 @@ top = args.top
 only_result = args.only_result == 1
 game = PoohHomerun(left, top)
 game.load_images('image')
+if game.detect_position() is None:
+    print "Error: cannot detect game screen position."
+    exit()
 x, y, w, h = game.region()
 train_width = w / 4
 train_height = h / 4

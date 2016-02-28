@@ -6,16 +6,23 @@ from PIL import Image
 import pyautogui as ag
 
 class Game(object):
-    def __init__(self, x=0, y=0, width=0, height=0):
-        self.x = x
-        self.y = y
+    def __init__(self, width, height):
+        self.x = 0
+        self.y = 0
         self.width = width
         self.height = height
+
+    def set_position(self, x, y):
+        self.x = x
+        self.y = y
 
     def region(self):
         return (self.x, self.y, self.width, self.height)
 
     def load_images(self, image_dir):
+        raise NotImplementedError
+
+    def detect_position(self):
         raise NotImplementedError
 
     def process(self, screen):
@@ -32,11 +39,21 @@ class Game(object):
             return random.randint(0, self.action_size() - 1)
         return action
 
-    def findImage(self, screen, image, x, y, w, h):
-        position = ag.locate(image, screen, region=(x, y, w, h));
+    def find_image(self, screen, image, x=0, y=0, w=None, h=None, center=False):
+        if w is None:
+            w = screen.width
+        if h is None:
+            h = screen.height
+        position = ag.locate(image, screen, region=(x, y, w, h))
         if position != None:
-            return (position[0] + position[2] / 2, position[1] + position[3] / 2)
+            if center:
+                return (position[0] + position[2] / 2, position[1] + position[3] / 2)
+            else:
+                return (position[0], position[1])
         return None
+
+    def find_image_center(self, screen, image, x=0, y=0, w=None, h=None):
+        return self.find_image(screen, image, x, y, w, h, center=True)
 
     def move_to(self, x, y):
         ag.moveTo(x + self.x, y + self.y)
@@ -62,7 +79,7 @@ class PoohHomerun(Game):
     RANDOM_ACTION_MAX_FRAME = 30
 
     def __init__(self, x, y):
-        super(PoohHomerun, self).__init__(x, y, self.WIDTH, self.HEIGHT)
+        super(PoohHomerun, self).__init__(self.WIDTH, self.HEIGHT)
         self.state = self.STATE_TITLE
         self.pausing_play = False
         self.images = {}
@@ -76,6 +93,18 @@ class PoohHomerun(Game):
     def load_images(self, image_dir):
         for name in ['start', 'stage', 'select_title', 'select', 'end', 'homerun', 'hit', 'foul', 'strike']:
             self.images[name] = Image.open(os.path.join(image_dir, '{}.png'.format(name)))
+
+    def detect_position(self):
+        screen = ag.screenshot()
+        for name, offset_x, offset_y in [('start', 288, 252), ('select_title', 28, 24)]:
+            position = self.find_image(screen, self.images[name])
+            if position != None:
+                x, y = position
+                x -= offset_x
+                y -= offset_y
+                self.set_position(x, y)
+                return (x, y)
+        return None
 
     def process(self, screen):
         if self.state == self.STATE_TITLE:
@@ -136,14 +165,14 @@ class PoohHomerun(Game):
     def _process_title(self, screen):
         self.move_to(0, 0)
         time.sleep(0.1)
-        position = self.findImage(screen, self.images['start'], 270, 240, 60, 40)
+        position = self.find_image_center(screen, self.images['start'], 270, 240, 60, 40)
         if position != None:
             x, y = position
             self.move_to(x, y)
             time.sleep(0.1)
             self.click()
             time.sleep(3)
-        position = self.findImage(screen, self.images['select_title'], 10, 16, 60, 40)
+        position = self.find_image_center(screen, self.images['select_title'], 10, 16, 60, 40)
         if position != None:
             self.state = self.STATE_SELECT
         return (None, False)
@@ -152,7 +181,7 @@ class PoohHomerun(Game):
         self.move_to(0, 0)
         time.sleep(0.1)
         for i in reversed(range(8)):
-            position = self.findImage(screen, self.images['stage'], 70 + i % 4 * 130, 180 + i / 4 * 170, 80, 20)
+            position = self.find_image_center(screen, self.images['stage'], 70 + i % 4 * 130, 180 + i / 4 * 170, 80, 20)
             if position != None and (i == 0 or random.randint(0, 1) == 0):
                 x, y = position
                 self.move_to(x, y + 10)
@@ -160,38 +189,38 @@ class PoohHomerun(Game):
                 self.click()
                 time.sleep(2)
                 break
-        position = self.findImage(screen, self.images['select_title'], 10, 16, 60, 40)
+        position = self.find_image_center(screen, self.images['select_title'], 10, 16, 60, 40)
         if position == None:
             self.state = self.STATE_PLAY
             return (None, False)
         return (None, False)
 
     def _process_play(self, screen):
-        position = self.findImage(screen, self.images['end'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['end'], 250, 180, 100, 80)
         if position != None:
             self.mouseup()
             self.pausing_play = False
             self.state = self.STATE_RESULT
             return 0, True
-        position = self.findImage(screen, self.images['homerun'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['homerun'], 250, 180, 100, 80)
         if position != None:
             if self.pausing_play:
                 return None, False
             self.pausing_play = True
             return 100, True
-        position = self.findImage(screen, self.images['hit'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['hit'], 250, 180, 100, 80)
         if position != None:
             if self.pausing_play:
                 return None, False
             self.pausing_play = True
             return -80, True
-        position = self.findImage(screen, self.images['foul'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['foul'], 250, 180, 100, 80)
         if position != None:
             if self.pausing_play:
                 return None, False
             self.pausing_play = True
             return -90, True
-        position = self.findImage(screen, self.images['strike'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['strike'], 250, 180, 100, 80)
         if position != None:
             if self.pausing_play:
                 return None, False
@@ -204,14 +233,14 @@ class PoohHomerun(Game):
     def _process_result(self, screen):
         self.move_to(0, 0)
         time.sleep(0.1)
-        position = self.findImage(screen, self.images['select'], 460, 406, 60, 40)
+        position = self.find_image_center(screen, self.images['select'], 460, 406, 60, 40)
         if position != None:
             x, y = position
             self.move_to(x, y)
             time.sleep(0.1)
             self.click()
             time.sleep(3)
-        position = self.findImage(screen, self.images['select_title'], 10, 16, 60, 40)
+        position = self.find_image_center(screen, self.images['select_title'], 10, 16, 60, 40)
         if position != None:
             self.state = self.STATE_SELECT
         return (None, False)
