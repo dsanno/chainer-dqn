@@ -10,10 +10,13 @@ from net import Q
 import chainer
 from chainer import functions as F
 from chainer import cuda, Variable, optimizers, serializers
+import sys
+from PyQt4.QtGui import QPixmap, QApplication
+from PIL import Image
 
 POOL_SIZE = 10000 * 10
 latent_size = 256
-gamma = 0.98
+gamma = 0.99
 batch_size = 64
 ag.PAUSE = 0
 
@@ -43,15 +46,13 @@ parser.add_argument('--only_result', default=0, type=int, choices=[0, 1],
 args = parser.parse_args()
 
 interval = args.interval / 1000.0
-left = args.left
-top = args.top
 only_result = args.only_result == 1
-game = PoohHomerun(left, top)
+game = PoohHomerun()
 game.load_images('image')
 if game.detect_position() is None:
     print "Error: cannot detect game screen position."
     exit()
-x, y, w, h = game.region()
+left, top, w, h = game.region()
 train_width = w / 4
 train_height = h / 4
 random.seed()
@@ -86,6 +87,8 @@ random_probability = args.random
 random_reduction_rate = 1 - args.random_reduction
 min_random_probability = min(random_probability, args.min_random)
 
+app = QApplication(sys.argv)
+window_id = app.desktop().winId()
 
 def train():
     max_term_size = args.max_train_term
@@ -120,6 +123,7 @@ def train():
             clock = time.clock()
             print "train", clock - last_clock
             last_clock = clock
+            time.sleep(0.1)
         current_term_size = min(current_term_size * term_increase_rate, max_term_size)
         print "current_term_size ", current_term_size
 
@@ -127,7 +131,7 @@ if __name__ == '__main__':
     try:
         thread.start_new_thread(train, ())
         next_clock = time.clock() + interval
-        save_iter = 5000
+        save_iter = 10000
         save_count = 0
         action = None
         action_q = q.copy()
@@ -135,7 +139,12 @@ if __name__ == '__main__':
         while True:
             if action is not None:
                 game.play(action)
-            screen = ag.screenshot(region=(left, top, w, h))
+
+            pixmap = QPixmap.grabWindow(window_id, left, top, w, h)
+            image = pixmap.toImage()
+            bits = image.bits()
+            bits.setsize(image.byteCount())
+            screen = Image.fromarray(np.array(bits).reshape((h, w, 4))[:,:,2::-1])
             reward, terminal = game.process(screen)
             if reward is not None:
                 train_image = xp.asarray(screen.resize((train_width, train_height))).astype(np.float32).transpose((2, 0, 1))
@@ -175,7 +184,7 @@ if __name__ == '__main__':
                     print 'save: ', save_count
                     serializers.save_hdf5('{0}_{1:03d}.model'.format(args.output, save_count), q)
                     serializers.save_hdf5('{0}_{1:03d}.state'.format(args.output, save_count), optimizer)
-                    save_iter = 5000
+                    save_iter = 10000
                     save_count += 1
             current_clock = time.clock()
             wait = next_clock - current_clock
@@ -183,6 +192,8 @@ if __name__ == '__main__':
             if wait > 0:
                 next_clock += interval
                 time.sleep(wait)
+            elif wait > -interval / 2:
+                next_clock += interval
             else:
                 next_clock = current_clock + interval
     except KeyboardInterrupt:

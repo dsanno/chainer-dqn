@@ -2,16 +2,9 @@ import argparse
 import time
 import os
 import pyautogui as ag
+from game import PoohHomerun
 
-parser = argparse.ArgumentParser(description='Chainer training example: MNIST')
-parser.add_argument('--left', required=True, type=int,
-                    help='left position of region')
-parser.add_argument('--top', required=True, type=int,
-                    help='top position of region')
-parser.add_argument('--width', required=True, type=int,
-                    help='width of region')
-parser.add_argument('--height', required=True, type=int,
-                    help='height of region')
+parser = argparse.ArgumentParser(description='Capturing images')
 parser.add_argument('--output', '-o', required=True, type=str,
                     help='output directory')
 parser.add_argument('--number', '-n', default=10000, type=int,
@@ -19,7 +12,15 @@ parser.add_argument('--number', '-n', default=10000, type=int,
 parser.add_argument('--interval', '-i', default=100, type=int,
                     help='interval of capturing (ms)')
 args = parser.parse_args()
-x, y, w, h = args.left, args.top, args.width, args.height
+
+game = PoohHomerun()
+game.load_images('image')
+if game.detect_position() is None:
+    print "Error: cannot detect game screen position."
+    exit()
+x, y, w, h = game.region()
+train_width = w / 4
+train_height = h / 4
 interval = args.interval
 out_dir = args.output
 if not os.path.exists(out_dir):
@@ -33,6 +34,12 @@ elif not os.path.isdir(out_dir):
     exit()
 
 start = time.clock()
+images = []
 for i in range(args.number):
-    ag.screenshot(region=(x, y, w, h)).save(os.path.join(out_dir, 'cap_{0:07d}.png'.format(i)))
-    time.sleep((i + 1) * interval / 1000.0 - (time.clock() - start))
+    images.append(ag.screenshot(region=(x, y, w, h)).resize((train_width, train_height)))
+    wait = (i + 1) * interval / 1000.0 - (time.clock() - start)
+    print wait
+    if wait > 0:
+        time.sleep(wait)
+for i, image in enumerate(images):
+    image.save(os.path.join(out_dir, 'cap_{0:07d}.png'.format(i)))

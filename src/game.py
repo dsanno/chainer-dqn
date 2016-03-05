@@ -75,20 +75,13 @@ class PoohHomerun(Game):
     WIDTH        = 600
     HEIGHT       = 450
     ACTIONS      = np.array([[np.float32(i + 260) / WIDTH * 2 - 1, 0, j, 1 - j] for i in range(0, 100, 3) for j in range(2)], dtype=np.float32)
-    RANDOM_ACTION_MIN_FRAME = 10
-    RANDOM_ACTION_MAX_FRAME = 30
 
-    def __init__(self, x, y):
+    def __init__(self):
         super(PoohHomerun, self).__init__(self.WIDTH, self.HEIGHT)
         self.state = self.STATE_TITLE
         self.pausing_play = False
         self.images = {}
-        self.random = {
-            'count': 0,
-            'button': True,
-            'position': True,
-            'prev_pos': 0,
-        }
+        self.random_prev_pos = 0
 
     def load_images(self, image_dir):
         for name in ['start', 'stage', 'select_title', 'select', 'end', 'homerun', 'hit', 'foul', 'strike']:
@@ -128,39 +121,21 @@ class PoohHomerun(Game):
             self.mousedown()
 
     def randomize_action(self, action, random_probability):
-        random_count = self.random['count']
-        random_button = self.random['button']
-        random_position = self.random['position']
-        prev_pos = self.random['prev_pos']
+        prev_pos = self.random_prev_pos
         pos_size = self.action_size() // 2
-        if random.random() < random_probability * 2 / (self.RANDOM_ACTION_MIN_FRAME + self.RANDOM_ACTION_MAX_FRAME):
-            random_count += random.randint(self.RANDOM_ACTION_MIN_FRAME, self.RANDOM_ACTION_MAX_FRAME)
-            random_type = random.randint(0, 2)
-            random_button = True
-            random_position = True
-            if random_type == 0:
-                random_button = False
-            elif random_type == 1:
-                random_position = False
+        if random.random() < 0.01:
             prev_pos = random.randint(0, pos_size - 1)
-        if random_count <= 0:
-            return action
-        pos = action // 2
-        button = action % 2
-        if random_position:
-            pos = prev_pos + random.randint(-5, 5)
+        if random.random() < random_probability:
+            pos = prev_pos
+            button = random.randint(0, 1)
             if pos < 0:
                 pos = 0
-            elif pos >= pos_size:
+            elif pos >= pos_size - 1:
                 pos = pos_size - 1
-            prev_pos = pos
-        if random_button:
-            button = random.randint(0, 1)
-        self.random['count'] = random_count - 1
-        self.random['button'] = random_button
-        self.random['position'] = random_position
-        self.random['prev_pos'] = prev_pos
-        return pos * 2 + button
+            action = pos * 2 + button
+            prev_pos += random.randint(-5, 5)
+        self.random_prev_pos = prev_pos
+        return action
 
     def _process_title(self, screen):
         self.move_to(0, 0)
@@ -196,31 +171,31 @@ class PoohHomerun(Game):
         return (None, False)
 
     def _process_play(self, screen):
-        position = self.find_image_center(screen, self.images['end'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['end'], 278, 208, 28, 20)
         if position != None:
             self.mouseup()
             self.pausing_play = False
             self.state = self.STATE_RESULT
             return 0, True
-        position = self.find_image_center(screen, self.images['homerun'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['homerun'], 284, 187, 28, 20)
         if position != None:
             if self.pausing_play:
                 return None, False
             self.pausing_play = True
             return 100, True
-        position = self.find_image_center(screen, self.images['hit'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['hit'], 284, 201, 28, 20)
         if position != None:
             if self.pausing_play:
                 return None, False
             self.pausing_play = True
             return -80, True
-        position = self.find_image_center(screen, self.images['foul'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['foul'], 284, 207, 28, 20)
         if position != None:
             if self.pausing_play:
                 return None, False
             self.pausing_play = True
             return -90, True
-        position = self.find_image_center(screen, self.images['strike'], 250, 180, 100, 80)
+        position = self.find_image_center(screen, self.images['strike'], 284, 187, 28, 20)
         if position != None:
             if self.pausing_play:
                 return None, False

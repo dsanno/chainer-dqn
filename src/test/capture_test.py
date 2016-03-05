@@ -3,7 +3,7 @@ import time
 import os
 import pyautogui as ag
 
-parser = argparse.ArgumentParser(description='Chainer training example: MNIST')
+parser = argparse.ArgumentParser(description='Test for images on captured screen')
 parser.add_argument('--left', required=True, type=int,
                     help='left position of region')
 parser.add_argument('--top', required=True, type=int,
@@ -22,7 +22,7 @@ interval = args.interval
 
 start = time.clock()
 for i in range(args.number):
-    for name in ['homerun', 'hit', 'foul', 'strike', 'stage', ]:
+    for name in ['homerun', 'hit', 'foul', 'strike', 'stage', 'end', ]:
         position = ag.locateOnScreen('image/{}.png'.format(name), region=(x, y, w, h));
         if position != None:
             left, top, width, height = position
