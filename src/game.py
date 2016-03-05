@@ -41,15 +41,20 @@ class Game(object):
 
     def find_image(self, screen, image, x=0, y=0, w=None, h=None, center=False):
         if w is None:
-            w = screen.width
+            right = screen.width
+        else:
+            right = x + w
         if h is None:
-            h = screen.height
-        position = ag.locate(image, screen, region=(x, y, w, h))
+            bottom = screen.height
+        else:
+            bottom = y + h
+        cropped = screen.crop((x, y, right, bottom))
+        position = ag.locate(image, cropped)
         if position != None:
             if center:
-                return (position[0] + position[2] / 2, position[1] + position[3] / 2)
+                return (x + position[0] + position[2] / 2, y + position[1] + position[3] / 2)
             else:
-                return (position[0], position[1])
+                return (x + position[0], y + position[1])
         return None
 
     def find_image_center(self, screen, image, x=0, y=0, w=None, h=None):
