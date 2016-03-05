@@ -123,7 +123,6 @@ def train():
             clock = time.clock()
             print "train", clock - last_clock
             last_clock = clock
-            time.sleep(0.1)
         current_term_size = min(current_term_size * term_increase_rate, max_term_size)
         print "current_term_size ", current_term_size
 
