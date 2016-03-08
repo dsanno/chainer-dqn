@@ -4,6 +4,7 @@
 
 * [Chainer](http://chainer.org/)
 * [PyAutoGUI](https://pyautogui.readthedocs.org/en/latest/)
+* [PyQt4](https://riverbankcomputing.com/software/pyqt/intro)
 
 # Supported Game
 
@@ -14,7 +15,7 @@
 Run the game and:
 
 ```
-python src/train.py -g 0 -o model\dqn --random 0.4 --random_reduction 0.00002 --min_random 0.1
+python src/train.py -g 0 -o model/dqn --random 0.4 --random_reduction 0.00002 --min_random 0.1
 ```
 
 Options:
