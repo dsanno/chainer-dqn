@@ -87,6 +87,7 @@ class PoohHomerun(Game):
         self.pausing_play = False
         self.images = {}
         self.random_prev_pos = 0
+        self.adjust_state_count = 0
 
     def load_images(self, image_dir):
         for name in ['start', 'stage', 'select_title', 'select', 'end', 'homerun', 'hit', 'foul', 'strike']:
@@ -104,7 +105,26 @@ class PoohHomerun(Game):
                 return (x, y)
         return None
 
+    def adjust_state(self, screen):
+        position = self.find_image(screen, self.images['start'], 270, 240, 60, 40)
+        if position != None:
+            self.state = self.STATE_TITLE
+            return
+        position = self.find_image(screen, self.images['select_title'], 10, 16, 60, 40)
+        if position != None:
+            self.state = self.STATE_SELECT
+            return
+        position = self.find_image(screen, self.images['select'], 460, 406, 60, 40)
+        if position != None:
+            self.state = self.STATE_RESULT
+            return
+
     def process(self, screen):
+        self.adjust_state_count -= 1
+        if self.adjust_state_count <= 0:
+            self.adjust_state(screen)
+            self.adjust_state_count = 200
+
         if self.state == self.STATE_TITLE:
             return self._process_title(screen)
         elif self.state == self.STATE_SELECT:
