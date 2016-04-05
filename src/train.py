@@ -41,12 +41,18 @@ parser.add_argument('--train_term_increase', default=0.00002, type=float,
                     help='increase rate of training term size')
 parser.add_argument('--max_train_term', default=32, type=int,
                     help='maximum training term size')
-parser.add_argument('--only_result', default=0, type=int, choices=[0, 1],
+parser.add_argument('--double_dqn', action='store_true',
+                    help='use Double DQN algorithm')
+parser.add_argument('--update_target_interval', default=2000, type=int,
+                    help='interval to update target Q function of Double DQN')
+parser.add_argument('--only_result', action='store_true',
                     help='use only reward to evaluate')
 args = parser.parse_args()
 
 interval = args.interval / 1000.0
-only_result = args.only_result == 1
+only_result = args.only_result
+use_double_dqn = args.double_dqn
+update_target_interval = args.update_target_interval
 game = PoohHomerun()
 game.load_images('image')
 if game.detect_position() is None:
@@ -60,6 +66,7 @@ random.seed()
 gpu_device = None
 xp = np
 q = Q(width=train_width, height=train_height, latent_size=latent_size, action_size=game.action_size())
+target_q = None
 if args.gpu >= 0:
     cuda.check_cuda_available()
     gpu_device = args.gpu
@@ -95,6 +102,10 @@ def train():
     current_term_size = args.train_term
     term_increase_rate = 1 + args.train_term_increase
     last_clock = time.clock()
+    update_target_iteration = 0
+    if use_double_dqn:
+        target_q = q.copy()
+        target_q.reset_state()
     while True:
         term_size = int(current_term_size)
         if frame < batch_size * term_size:
@@ -102,6 +113,11 @@ def train():
         batch_index = np.random.permutation(min(frame - term_size, POOL_SIZE))[:batch_size]
         train_image = Variable(xp.asarray(state_pool[batch_index]))
         y = q(train_image)
+        if use_double_dqn and update_target_iteration >= update_target_interval:
+            target_q = q.copy()
+            target_q.reset_state()
+            target_q(Variable(xp.asarray(state_pool[batch_index])), volatile=True)
+            update_iteration = 0
         for term in range(term_size):
             next_batch_index = (batch_index + 1) % POOL_SIZE
             train_image = Variable(xp.asarray(state_pool[next_batch_index]))
@@ -109,7 +125,13 @@ def train():
             if only_result:
                 t = Variable(xp.asarray(reward_pool[batch_index]))
             else:
-                best_q = np.max(cuda.to_cpu(score.data), axis=1)
+                if use_double_dqn:
+                    eval_image = Variable(xp.asarray(state_pool[next_batch_index]), volatile=True)
+                    target_score = target_q(eval_image)
+                    best_action = cuda.to_cpu(xp.argmax(score.data, axis=1))
+                    best_q = cuda.to_cpu(target_score.data)[range(batch_size), best_action]
+                else:
+                    best_q = cuda.to_cpu(xp.max(score.data, axis=1))
                 t = Variable(xp.asarray(reward_pool[batch_index] + (1 - terminal_pool[batch_index]) * gamma * best_q))
             action_index = chainer.Variable(xp.asarray(action_pool[batch_index]))
             loss = F.mean_squared_error(F.select_item(y, action_index), t)
@@ -123,6 +145,8 @@ def train():
             clock = time.clock()
             print "train", clock - last_clock
             last_clock = clock
+            if use_double_dqn:
+                update_target_iteration += 1
         current_term_size = min(current_term_size * term_increase_rate, max_term_size)
         print "current_term_size ", current_term_size
 

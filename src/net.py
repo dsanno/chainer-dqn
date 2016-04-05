@@ -1,9 +1,6 @@
-import math
-import numpy as np
 import chainer
 import chainer.functions as F
 import chainer.links as L
-from chainer import cuda, Variable
 
 class Q(chainer.Chain):
     def __init__(self, width=150, height=112, channel=3, action_size=100, latent_size=100):
