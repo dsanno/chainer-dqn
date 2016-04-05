@@ -87,6 +87,7 @@ class PoohHomerun(Game):
         self.pausing_play = False
         self.images = {}
         self.random_prev_pos = 0
+        self.random_count = 0
         self.adjust_state_count = 0
 
     def load_images(self, image_dir):
@@ -148,9 +149,11 @@ class PoohHomerun(Game):
     def randomize_action(self, action, random_probability):
         prev_pos = self.random_prev_pos
         pos_size = self.action_size() // 2
-        if random.random() < 0.01:
+        if random.random() * 15 < random_probability:
+            self.random_count += random.randint(1, 29)
             prev_pos = random.randint(0, pos_size - 1)
-        if random.random() < random_probability:
+        if self.random_count > 0:
+            self.random_count -= 1
             pos = prev_pos
             button = random.randint(0, 1)
             if pos < 0:
@@ -236,6 +239,12 @@ class PoohHomerun(Game):
         position = self.find_image_center(screen, self.images['select'], 460, 406, 60, 40)
         if position != None:
             x, y = position
+            self.move_to(x, y)
+            time.sleep(0.1)
+            self.click()
+            time.sleep(3)
+        else:
+            x, y = 410, 425
             self.move_to(x, y)
             time.sleep(0.1)
             self.click()
