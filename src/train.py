@@ -116,7 +116,7 @@ def train():
         if use_double_dqn and update_target_iteration >= update_target_interval:
             target_q = q.copy()
             target_q.reset_state()
-            target_q(Variable(xp.asarray(state_pool[batch_index])), volatile=True)
+            target_q(Variable(xp.asarray(state_pool[batch_index]), volatile=True))
             update_iteration = 0
         for term in range(term_size):
             next_batch_index = (batch_index + 1) % POOL_SIZE
