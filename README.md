@@ -22,12 +22,12 @@ Options:
 * -g, --gpu: (optional) GPU device index (default: -1).
 * -i, --input: (optional) input model file path without extension.
 * -o, --output: (required) output model file path without extension.
-* -r, --random: randomness of playing (default: 0.2).
+* -r, --random: (optional) randomness of playing (default: 0.2).
 * --pool_size: (optional) number of frames of memory pool (default: 50000).
-* --random_reduction: randomness reduction rate per iteration (default: 0.00002).
-* --min_random: minimum randomness of playing (default: 0.1).
-* --double_dqn: use Double DQN algorithm
-* --update_target_interval: interval to update target Q function of Double DQN (default: 2000)
+* --random_reduction: (optional) randomness reduction rate per iteration (default: 0.00002).
+* --min_random: (optional) minimum randomness of playing (default: 0.1).
+* --double_dqn: (optional) use Double DQN algorithm
+* --update_target_interval: (optional) interval to update target Q function of Double DQN (default: 2000)
 
 # License
 
