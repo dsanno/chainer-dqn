@@ -14,7 +14,6 @@ import sys
 from PyQt4.QtGui import QPixmap, QApplication
 from PIL import Image
 
-POOL_SIZE = 10000 * 10
 latent_size = 256
 gamma = 0.99
 batch_size = 64
@@ -31,6 +30,8 @@ parser.add_argument('--interval', default=100, type=int,
                     help='interval of capturing (ms)')
 parser.add_argument('--random', '-r', default=0.2, type=float,
                     help='randomness of play')
+parser.add_argument('--pool_size', default=50000, type=int,
+                    help='number of frames of memory pool size')
 parser.add_argument('--random_reduction', default=0.000002, type=float,
                     help='reduction rate of randomness')
 parser.add_argument('--min_random', default=0.1, type=float,
@@ -74,10 +75,18 @@ if args.gpu >= 0:
     xp = cuda.cupy
     q.to_gpu()
 
+POOL_SIZE = args.pool_size
 state_pool = np.zeros((POOL_SIZE, 3, train_height, train_width), dtype=np.float32)
 action_pool = np.zeros((POOL_SIZE,), dtype=np.int32)
 reward_pool = np.zeros((POOL_SIZE,), dtype=np.float32)
 terminal_pool = np.zeros((POOL_SIZE,), dtype=np.float32)
+
+# allocate memory
+state_pool[...] = 0
+action_pool[...] = 0
+reward_pool[...] = 0
+terminal_pool[...] = 0
+
 if only_result:
     terminal_pool[-1] = 1
 frame = 0

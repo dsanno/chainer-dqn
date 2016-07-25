@@ -23,6 +23,7 @@ Options:
 * -i, --input: (optional) input model file path without extension.
 * -o, --output: (required) output model file path without extension.
 * -r, --random: randomness of playing (default: 0.2).
+* --pool_size: (optional) number of frames of memory pool (default: 50000).
 * --random_reduction: randomness reduction rate per iteration (default: 0.00002).
 * --min_random: minimum randomness of playing (default: 0.1).
 * --double_dqn: use Double DQN algorithm
