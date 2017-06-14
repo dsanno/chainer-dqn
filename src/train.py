@@ -9,7 +9,7 @@ from game import PoohHomerun
 from net import Q
 import chainer
 from chainer import functions as F
-from chainer import cuda, Variable, optimizers, serializers
+from chainer import cuda, optimizers, serializers
 import sys
 from PyQt4.QtGui import QPixmap, QApplication
 from PIL import Image
@@ -120,32 +120,34 @@ def train():
         if frame < batch_size * term_size:
             continue
         batch_index = np.random.permutation(min(frame - term_size, POOL_SIZE))[:batch_size]
-        train_image = Variable(xp.asarray(state_pool[batch_index]))
+        train_image = xp.asarray(state_pool[batch_index])
         y = q(train_image)
         if use_double_dqn and update_target_iteration >= update_target_interval:
             target_q = q.copy()
             target_q.reset_state()
-            target_q(Variable(xp.asarray(state_pool[batch_index]), volatile=True))
+            with chainer.using_config('enable_backprop', False):
+                target_q(xp.asarray(state_pool[batch_index]))
             update_iteration = 0
         for term in range(term_size):
             next_batch_index = (batch_index + 1) % POOL_SIZE
-            train_image = Variable(xp.asarray(state_pool[next_batch_index]))
+            train_image = xp.asarray(state_pool[next_batch_index])
             score = q(train_image)
             if only_result:
-                t = Variable(xp.asarray(reward_pool[batch_index]))
+                t = xp.asarray(reward_pool[batch_index])
             else:
                 if use_double_dqn:
-                    eval_image = Variable(xp.asarray(state_pool[next_batch_index]), volatile=True)
-                    target_score = target_q(eval_image)
+                    eval_image = xp.asarray(state_pool[next_batch_index])
+                    with chainer.using_config('enable_backprop', False):
+                        target_score = target_q(eval_image)
                     best_action = cuda.to_cpu(xp.argmax(score.data, axis=1))
                     best_q = cuda.to_cpu(target_score.data)[range(batch_size), best_action]
                 else:
                     best_q = cuda.to_cpu(xp.max(score.data, axis=1))
-                t = Variable(xp.asarray(reward_pool[batch_index] + (1 - terminal_pool[batch_index]) * gamma * best_q))
-            action_index = chainer.Variable(xp.asarray(action_pool[batch_index]))
+                t = xp.asarray(reward_pool[batch_index] + (1 - terminal_pool[batch_index]) * gamma * best_q)
+            action_index = xp.asarray(action_pool[batch_index])
             loss = F.mean_squared_error(F.select_item(y, action_index), t)
             y = score
-            optimizer.zero_grads()
+            q.cleargrads()
             loss.backward()
             loss.unchain_backward()
             optimizer.update()
@@ -180,14 +182,15 @@ if __name__ == '__main__':
             reward, terminal = game.process(screen)
             if reward is not None:
                 train_image = xp.asarray(screen.resize((train_width, train_height))).astype(np.float32).transpose((2, 0, 1))
-                train_image = Variable(train_image.reshape((1,) + train_image.shape) / 127.5 - 1, volatile=True)
-                score = action_q(train_image, train=False)
-
+                train_image = xp.expand_dims(train_image, 0) / 127.5 - 1
+                with chainer.using_config('train', False):
+                    with chainer.using_config('enable_backprop', False):
+                        score = action_q(train_image)
                 best = int(np.argmax(score.data))
                 action = game.randomize_action(best, random_probability)
                 print action, float(score.data[0][action]), best, float(score.data[0][best]), reward
                 index = frame % POOL_SIZE
-                state_pool[index] = cuda.to_cpu(train_image.data)
+                state_pool[index] = cuda.to_cpu(train_image)
                 action_pool[index] = action
                 reward_pool[index - 1] = reward
                 average_reward = average_reward * 0.9999 + reward * 0.0001

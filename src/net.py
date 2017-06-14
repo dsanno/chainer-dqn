@@ -21,7 +21,7 @@ class Q(chainer.Chain):
         self.height = height
         self.latent_size = latent_size
 
-    def __call__(self, x, train=True):
+    def __call__(self, x):
         h1 = F.relu(self.conv1(x))
         h2 = F.relu(self.conv2(h1))
         h3 = F.relu(self.conv3(h2))
