@@ -71,7 +71,7 @@ target_q = None
 if args.gpu >= 0:
     cuda.check_cuda_available()
     gpu_device = args.gpu
-    cuda.get_device(gpu_device).use()
+    cuda.get_device_from_id(gpu_device).use()
     xp = cuda.cupy
     q.to_gpu()
 
